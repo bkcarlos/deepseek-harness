@@ -12,6 +12,7 @@
   },
   "type": "module",
   "main": "dist-electron/main.js",
+  "author": "DeepSeek <support@deepseek.com>",
   "files": [
     "dist",
     "dist-electron",
