@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
 // Activates the webServer Context merge used below.
-import type { WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
+import type { WebRoute, WebServer, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { toFetchHandler } from '@deepseek-ai/dsh-host-apiproxy'
 import { API_PATH, HOST_EVENTS_PATH, MUX_EVENTS_PATH } from './api-path.ts'
 import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
@@ -179,7 +179,8 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
   // server is already present, otherwise defer until it arrives. A composition
   // without a web server (the Electron desktop surface) never mounts it.
   if (ctx.get('webServer') !== undefined) {
-    ctx.effect(() => ctx.webServer.register(route), 'client-connection: /api route')
+    const webServer = ctx.get('webServer') as WebServer
+    ctx.effect(() => webServer.register(route), 'client-connection: /api route')
   } else {
     ctx.inject(['webServer'], (webCtx) => {
       webCtx.effect(() => webCtx.webServer.register(route), 'client-connection: /api route')

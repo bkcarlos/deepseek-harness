@@ -29,7 +29,7 @@ import { dirname, join } from 'node:path'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type {} from '@deepseek-ai/dsh-host-webserver'
+import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import type { WebBootEntry, WebBootGraph } from './client/manifest.ts'
 
 export type {
@@ -255,12 +255,13 @@ export class ClientModuleRegistry extends Service {
 
   /** Register the two web-server effects (bundle route + index tap) on the context carrying the server. */
   private mountWebCarrier(webCtx: Context): void {
+    const webServer = webCtx.get('webServer') as WebServer
     webCtx.effect(
-      () => webCtx.webServer.register({ kind: 'prefix', path: '/plugins', handler: this.serveBundle }),
+      () => webServer.register({ kind: 'prefix', path: '/plugins', handler: this.serveBundle }),
       'client-modules: bundle route',
     )
     webCtx.effect(
-      () => webCtx.webServer.tapIndex(html => injectBootManifest(html, this.composed)),
+      () => webServer.tapIndex(html => injectBootManifest(html, this.composed)),
       'client-modules: boot manifest injection',
     )
   }
