@@ -2,9 +2,9 @@
 # the `desktop` profile in-process and packages the full dependency closure, so
 # the job builds the library first (the client bundles and vendored framework
 # runtime the packaged tree resolves) before electron-builder assembles each
-# platform's installer. Signing is deliberately off in CI: the artifacts are
-# unsigned development builds; a release run wires per-platform signing
-# identities and notarization separately.
+# platform's installer. macOS signs + notarizes when the signing secrets are
+# present (they are developer-account scoped, so they are reusable across
+# apps); Windows and Linux stay unsigned until those identities are wired.
 name: Desktop (Electron)
 
 on:
@@ -23,8 +23,8 @@ concurrency:
 env:
   # CI runs must never report to the production telemetry endpoint.
   DSH_TELEMETRY_DISABLED: '1'
-  # Skip code-signing discovery: CI has no signing identity, and an unsigned
-  # build must not hang probing for one.
+  # Windows/Linux have no signing identity in CI, and the macOS signed path
+  # supplies its certificate explicitly through CSC_LINK; disable probing.
   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
 jobs:
@@ -61,7 +61,26 @@ jobs:
       - name: Build libraries
         run: pnpm run build:lib
 
-      - name: Package installer
+      # The notarization secret is the raw .p8 key; electron-builder reads
+      # APPLE_API_KEY as a path, so materialize it before packaging.
+      - name: Prepare notarization key (macOS)
+        if: matrix.os == 'macos-15' && secrets.MACOS_CERTIFICATE != ''
+        env:
+          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
+        run: printf '%s' "$APPLE_NOTARIZATION_KEY" > /tmp/AuthKey.p8
+
+      - name: Package installer (macOS signed + notarized)
+        if: matrix.os == 'macos-15' && secrets.MACOS_CERTIFICATE != ''
+        env:
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: /tmp/AuthKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
+        run: pnpm --filter @deepseek-ai/dsh-desktop run dist
+
+      - name: Package installer (unsigned)
+        if: matrix.os != 'macos-15' || secrets.MACOS_CERTIFICATE == ''
         run: pnpm --filter @deepseek-ai/dsh-desktop run dist
 
       - name: Upload installers
