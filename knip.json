@@ -782,6 +782,26 @@
       "ignoreDependencies": [
         "@deepseek-ai/.+"
       ]
+    },
+    "packages/bundle/desktop-app": {
+      "ignoreDependencies": [
+        "@deepseek-ai/.+"
+      ]
+    },
+    "apps/desktop": {
+      "entry": [
+        "src/node-module-stub.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "@deepseek-ai/.+",
+        "@types/react",
+        "@types/react-dom",
+        "react",
+        "react-dom"
+      ]
     }
   }
 }

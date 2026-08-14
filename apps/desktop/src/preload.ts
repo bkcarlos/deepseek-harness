@@ -19,13 +19,21 @@ type HeadMessage = { id: string; status: number; statusText: string; headers: Re
 type EndMessage = { id: string }
 type ErrorMessage = { id: string; message: string }
 
+/** Message shape each shared push channel carries. */
+interface PushMessageMap {
+  'dsh:fetch-head': HeadMessage
+  'dsh:fetch-chunk': ChunkMessage
+  'dsh:fetch-end': EndMessage
+  'dsh:fetch-error': ErrorMessage
+}
+
 /** Subscribe to one shared main→renderer push channel, filtering by request id. */
-function subscribe<T extends { id: string }>(
-  channel: string,
+function subscribe<K extends keyof PushMessageMap>(
+  channel: K,
   id: string,
-  handler: (message: T) => void,
+  handler: (message: PushMessageMap[K]) => void,
 ): () => void {
-  const listener = (_event: Electron.IpcRendererEvent, message: T): void => {
+  const listener = (_event: Electron.IpcRendererEvent, message: PushMessageMap[K]): void => {
     if (message.id === id) handler(message)
   }
   ipcRenderer.on(channel, listener)
@@ -45,17 +53,17 @@ function makeRequest(input: DesktopFetchRequest): DesktopFetchHandle {
   const ends = new Set<() => void>()
   const errors = new Set<(error: Error) => void>()
 
-  const offHead = subscribe<HeadMessage>('dsh:fetch-head', id, (message) => {
+  const offHead = subscribe('dsh:fetch-head', id, (message) => {
     resolveHead({ status: message.status, statusText: message.statusText, headers: message.headers, hasBody: message.hasBody })
   })
-  const offChunk = subscribe<ChunkMessage>('dsh:fetch-chunk', id, (message) => {
+  const offChunk = subscribe('dsh:fetch-chunk', id, (message) => {
     for (const listener of chunks) listener(message.chunk)
   })
-  const offEnd = subscribe<EndMessage>('dsh:fetch-end', id, () => {
+  const offEnd = subscribe('dsh:fetch-end', id, () => {
     for (const listener of ends) listener()
     cleanup()
   })
-  const offError = subscribe<ErrorMessage>('dsh:fetch-error', id, (message) => {
+  const offError = subscribe('dsh:fetch-error', id, (message) => {
     const error = new Error(message.message)
     rejectHead(error)
     for (const listener of errors) listener(error)
@@ -72,9 +80,9 @@ function makeRequest(input: DesktopFetchRequest): DesktopFetchHandle {
 
   return {
     response: head,
-    onChunk(listener) { chunks.add(listener) },
-    onEnd(listener) { ends.add(listener) },
-    onError(listener) { errors.add(listener) },
+    onChunk(listener: (chunk: Uint8Array) => void) { chunks.add(listener) },
+    onEnd(listener: () => void) { ends.add(listener) },
+    onError(listener: (error: Error) => void) { errors.add(listener) },
     cancel() {
       ipcRenderer.send('dsh:cancel', { id })
       rejectHead(new Error('This operation was aborted'))
@@ -83,12 +91,21 @@ function makeRequest(input: DesktopFetchRequest): DesktopFetchHandle {
   }
 }
 
+/** Validate the main process's `dsh:bundle` reply at the IPC boundary (invoke returns `Promise<any>`). */
+function isBundleContent(value: unknown): value is { contentType: string; body: Uint8Array } {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as { contentType?: unknown }).contentType === 'string'
+    && (value as { body?: unknown }).body instanceof Uint8Array
+}
+
 const bridge = {
   async getBootManifest(): Promise<unknown> {
     return ipcRenderer.invoke('dsh:boot')
   },
   async loadBundle(id: string): Promise<{ contentType: string; body: Uint8Array } | undefined> {
-    return ipcRenderer.invoke('dsh:bundle', id)
+    const reply: unknown = await ipcRenderer.invoke('dsh:bundle', id)
+    return isBundleContent(reply) ? reply : undefined
   },
   request(input: DesktopFetchRequest): DesktopFetchHandle {
     return makeRequest(input)

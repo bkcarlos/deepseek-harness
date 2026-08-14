@@ -88,8 +88,8 @@ describe('connection client apply', () => {
   it('selects the IPC carrier and loopback posture when the desktop bridge is present', async () => {
     ;(globalThis as Win).location = { hostname: '', search: '', origin: 'null' }
     ;(globalThis as Win).dshDesktop = {
-      request() {
-        return { response: Promise.reject(new Error('unused')), onChunk: () => {}, onEnd: () => {}, onError: () => {}, cancel: () => {} } as DesktopFetchHandle
+      request(): DesktopFetchHandle {
+        return { response: Promise.reject(new Error('unused')), onChunk: () => {}, onEnd: () => {}, onError: () => {}, cancel: () => {} }
       },
     }
     try {

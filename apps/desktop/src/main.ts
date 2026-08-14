@@ -95,7 +95,7 @@ function wireIpc(desktop: DesktopHostService): void {
 /** Boot the harness, install the bridge, and open the window. */
 async function main(): Promise<void> {
   const ctx = await bootDesktop()
-  const desktop = ctx.get('desktop') as DesktopHostService | undefined
+  const desktop = ctx.get('desktop')
   if (desktop === undefined) {
     throw new Error('dsh-desktop: ctx.desktop is missing after boot — is the desktop bundle composed?')
   }
@@ -128,6 +128,19 @@ async function main(): Promise<void> {
   await window.loadFile(indexHtmlPath())
 }
 
+/** Render a non-Error thrown value without Object's default `[object Object]` stringification. */
+function describeValue(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'symbol') return value.toString()
+  if (typeof value === 'function') return `[Function: ${value.name || '<anonymous>'}]`
+  try {
+    return JSON.stringify(value)
+  } catch {
+    // BigInt and cyclic structures stringify to a type tag rather than failing the boot log.
+    return Object.prototype.toString.call(value)
+  }
+}
+
 /** Flatten an AggregateError's per-entry failures so a boot failure names every unresolved plugin. */
 function dumpError(error: unknown): string {
   const lines: string[] = []
@@ -141,7 +154,7 @@ function dumpError(error: unknown): string {
       for (const child of value.errors) visit(child, depth + 1)
       return
     }
-    lines.push(`${prefix}${value instanceof Error ? value.stack ?? value.message : String(value)}`)
+    lines.push(`${prefix}${value instanceof Error ? value.stack ?? value.message : describeValue(value)}`)
   }
   visit(error, 0)
   return lines.join('\n')
@@ -149,7 +162,7 @@ function dumpError(error: unknown): string {
 
 // The `dsh:fetch` streaming bridge emits to a raw webContents, so keep the
 // unhandled-rejection surface explicit rather than relying on a Node-style exit.
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   void main().catch((error: unknown) => {
     console.error(`dsh-desktop: boot failed:\n${dumpError(error)}`)
     app.quit()

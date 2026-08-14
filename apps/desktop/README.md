@@ -1,5 +1,7 @@
 # @deepseek-ai/dsh-desktop
 
+English | [中文](README.zh.md)
+
 The Electron desktop shell for DeepSeek Harness. It boots the `desktop` profile (dsh-base + dsh-web-app + dsh-desktop-app) in-process, bridges the GUI over Electron IPC instead of an HTTP server, and packages a native installer.
 
 - `src/main.ts` — main process: boot the tree, wire `ctx.desktop` over `ipcMain` (boot manifest, bundle bytes, a streaming fetch that pushes `Response` body chunks back), and open one `BrowserWindow` over `file://`.

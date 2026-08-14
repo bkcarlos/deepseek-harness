@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  abortError,
   collectBodyText,
   IpcApiClient,
   type DesktopFetchBridge,
@@ -141,6 +142,22 @@ describe('IpcApiClient', () => {
     await expect(iterator.next()).resolves.toMatchObject({ done: true })
   })
 
+  it('errors the SSE stream when the body channel fails mid-stream', async () => {
+    const bridge = new FakeBridge()
+    const client = new IpcApiClient(bridge)
+    const abort = new AbortController()
+    const iterator = client.events.mux({}, abort.signal)[Symbol.asyncIterator]()
+    const next = iterator.next()
+    const handle = bridge.requests[0]!
+    handle.resolveHead(head())
+    handle.push(encoder.encode('data: {"type":"server-request","rpcId":"mux-1","method":"session/subscribed","payload":{"type":"session/subscribed","sessionId":"s-1","lastSeq":0}}\n\n'))
+    await expect(next).resolves.toMatchObject({
+      value: { rpcId: 'mux-1', payload: { type: 'session/subscribed' } },
+    })
+    handle.fail(new Error('stream broke'))
+    await expect(iterator.next()).rejects.toThrow('stream broke')
+  })
+
   it('resolves a bodyless response with a null body', async () => {
     const bridge = new FakeBridge()
     const client = new IpcApiClient(bridge)
@@ -153,6 +170,26 @@ describe('IpcApiClient', () => {
     expect(handle.cancelled).toBe(false)
   })
 
+  it('resolves a caller-signal-only unary without an external signal', async () => {
+    const bridge = new FakeBridge()
+    const client = new IpcApiClient(bridge)
+    const pending = client.host.pickDirectory({})
+    const handle = bridge.requests[0]!
+    expect(handle.input.url).toBe('http://dsh.internal/api/host.pickDirectory')
+    const envelope = JSON.parse(handle.input.body as string) as { rpcId: string }
+    handle.resolveHead(head())
+    handle.push(encoder.encode(JSON.stringify({
+      type: 'server-response',
+      rpcId: envelope.rpcId,
+      result: { ok: true, value: { path: null } },
+    })))
+    handle.end()
+    await expect(pending).resolves.toEqual({
+      rpcId: envelope.rpcId,
+      result: { ok: true, value: { path: null } },
+    })
+  })
+
   it('rejects immediately when the external signal was already aborted', async () => {
     const bridge = new FakeBridge()
     const client = new IpcApiClient(bridge)
@@ -160,6 +197,22 @@ describe('IpcApiClient', () => {
     abort.abort()
     await expect(client.host.describe({}, abort.signal)).rejects.toThrow('This operation was aborted')
     expect(bridge.requests[0]?.cancelled).toBe(true)
+  })
+
+  it('cancels the open body stream when the signal aborts mid-stream', async () => {
+    const bridge = new FakeBridge()
+    const client = new IpcApiClient(bridge)
+    const abort = new AbortController()
+    const iterator = client.events.mux({}, abort.signal)[Symbol.asyncIterator]()
+    const next = iterator.next()
+    const handle = bridge.requests[0]!
+    handle.resolveHead(head())
+    // Let the head resolve, readSse open the body reader, and the stream's
+    // start() register its abort listener before the signal fires.
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0) })
+    abort.abort()
+    await expect(next).rejects.toThrow('This operation was aborted')
+    expect(handle.cancelled).toBe(true)
   })
 
   it('cancels and rejects when the signal aborts mid-flight', async () => {
@@ -239,5 +292,58 @@ describe('createIpcConnectionRpc', () => {
     abort.abort()
     await expect(pending).rejects.toThrow()
     expect(handle.cancelled).toBe(true)
+  })
+
+  it('settles under a live signal and detaches the abort listener on success', async () => {
+    const bridge = new FakeBridge()
+    const rpc = createIpcConnectionRpc(bridge)
+    const abort = new AbortController()
+    const pending = rpc.call('/api', 'goals/create', {}, abort.signal)
+    const handle = bridge.requests[0]!
+    const envelope = JSON.parse(handle.input.body as string) as { rpcId: string }
+    handle.resolveHead(head())
+    handle.push(encoder.encode(JSON.stringify({
+      type: 'server-response',
+      rpcId: envelope.rpcId,
+      result: { ok: true, value: { ref: 'goal-1' } },
+    })))
+    handle.end()
+    await expect(pending).resolves.toEqual({ ok: true, value: { ref: 'goal-1' } })
+    // The live signal is no longer abortable here: the listener was removed.
+    abort.abort()
+    expect(handle.cancelled).toBe(false)
+  })
+
+  it('tears down and rejects immediately when the caller signal is already aborted', async () => {
+    const bridge = new FakeBridge()
+    const rpc = createIpcConnectionRpc(bridge)
+    const abort = new AbortController()
+    abort.abort()
+    await expect(rpc.call('/api', 'goals/create', {}, abort.signal)).rejects.toThrow('This operation was aborted')
+    expect(bridge.requests[0]?.cancelled).toBe(true)
+  })
+})
+
+describe('abortError', () => {
+  it('maps an Error reason, a string reason, and a missing reason', () => {
+    const error = new Error('boom')
+    expect(abortError({ reason: error } as AbortSignal)).toBe(error)
+    expect(abortError({ reason: 'string reason' } as AbortSignal).message).toBe('string reason')
+    expect(abortError({} as AbortSignal).message).toBe('This operation was aborted')
+  })
+})
+
+describe('collectBodyText wake path', () => {
+  it('wakes when a chunk arrives after the reader started waiting', async () => {
+    const bridge = new FakeBridge()
+    const handle = bridge.request({ url: 'http://x/api/rpc', method: 'POST', headers: {} })
+    handle.resolveHead(head())
+    const pending = collectBodyText(handle)
+    // Let the generator settle into its wait for the next chunk before any
+    // chunk arrives, so the pull path (not the buffered-replay path) runs.
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0) })
+    handle.push(encoder.encode('late'))
+    handle.end()
+    await expect(pending).resolves.toBe('late')
   })
 })

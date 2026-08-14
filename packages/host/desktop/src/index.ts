@@ -59,7 +59,10 @@ export class DesktopHostService extends Service {
     this.fetchHandler = connection.createSharedFetchHandler(API_PATH, toFetchHandler(ctx.apiProxy))
   }
 
-  /** The composed client entry graph (what the browser reads as `window.__DSH_BOOT__`). */
+  /**
+   * The composed client entry graph (what the browser reads as `window.__DSH_BOOT__`).
+   * @returns the client-modules boot manifest.
+   */
   graph(): WebBootGraph {
     return this.ctx.clientModules.graph()
   }

@@ -69,7 +69,11 @@ export interface DshDesktopWindow {
   dshDesktop?: DesktopFetchBridge
 }
 
-/** Mirror fetch's abort rejection: the signal's reason when present, else an AbortError. */
+/**
+ * Mirror fetch's abort rejection: the signal's reason when present, else an AbortError.
+ * @param signal - the aborted signal whose reason (if any) names the failure.
+ * @returns the signal's reason as an Error, or a generic abort Error.
+ */
 export function abortError(signal: AbortSignal): Error {
   const reason: unknown = signal.reason
   if (reason instanceof Error) return reason
@@ -86,20 +90,21 @@ function headersOf(init?: RequestInit): Record<string, string> {
 async function* toAsyncChunks(handle: DesktopFetchHandle): AsyncGenerator<Uint8Array> {
   const queue: Uint8Array[] = []
   let wake: (() => void) | null = null
-  let ended = false
-  let failure: Error | null = null
+  // The push callbacks mutate this shared state between the loop's awaits, so
+  // the loop reads it through the box instead of narrowed local bindings.
+  const state: { ended: boolean; failure: Error | null } = { ended: false, failure: null }
   handle.onChunk((chunk) => {
     queue.push(chunk)
     wake?.()
     wake = null
   })
   handle.onEnd(() => {
-    ended = true
+    state.ended = true
     wake?.()
     wake = null
   })
   handle.onError((error) => {
-    failure = error
+    state.failure = error
     wake?.()
     wake = null
   })
@@ -109,13 +114,17 @@ async function* toAsyncChunks(handle: DesktopFetchHandle): AsyncGenerator<Uint8A
       yield next
       continue
     }
-    if (failure !== null) throw failure
-    if (ended) return
+    if (state.failure !== null) throw state.failure
+    if (state.ended) return
     await new Promise<void>((resolve) => { wake = resolve })
   }
 }
 
-/** Whole-body text of a bridge response (the RPC caller's carrier read path). */
+/**
+ * Whole-body text of a bridge response (the RPC caller's carrier read path).
+ * @param handle - the in-flight bridge request to drain.
+ * @returns the decoded body text, or '' for a bodyless response.
+ */
 export async function collectBodyText(handle: DesktopFetchHandle): Promise<string> {
   const head = await handle.response
   if (!head.hasBody) return ''
@@ -129,6 +138,9 @@ export async function collectBodyText(handle: DesktopFetchHandle): Promise<strin
 function bodyStream(handle: DesktopFetchHandle, signal: AbortSignal | undefined): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     async start(controller) {
+      // The caller's signal cancels the in-flight request for the whole read;
+      // the base readSse only reaches `reader.cancel()` after the stream has
+      // already closed or errored, so a separate cancel callback is unreachable.
       const onAbort = (): void => { handle.cancel() }
       signal?.addEventListener('abort', onAbort, { once: true })
       try {
@@ -139,9 +151,6 @@ function bodyStream(handle: DesktopFetchHandle, signal: AbortSignal | undefined)
       } finally {
         signal?.removeEventListener('abort', onAbort)
       }
-    },
-    cancel() {
-      handle.cancel()
     },
   })
 }

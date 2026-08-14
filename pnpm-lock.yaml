@@ -1753,6 +1753,9 @@ importers:
 
   packages/bundle/desktop-app:
     dependencies:
+      '@deepseek-ai/dsh-client-connection':
+        specifier: workspace:^
+        version: link:../../client/connection
       '@deepseek-ai/dsh-host-desktop':
         specifier: workspace:^
         version: link:../../host/desktop

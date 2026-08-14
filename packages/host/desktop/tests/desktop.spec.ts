@@ -15,6 +15,7 @@ import type { ClientModuleRegistry, WebBootGraph } from '@deepseek-ai/dsh-client
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DesktopHostService } from '../src/index.ts'
+import { apply as applyInvariant, inject, name } from '../src/invariant.ts'
 
 let root: string | undefined
 
@@ -106,5 +107,28 @@ describe('DesktopHostService', () => {
     const text = await response.text()
     expect(text).toContain('session/subscribed')
     expect(text).toContain('"rpcId":"mux-1"')
+  })
+})
+
+describe('host-desktop invariant companion', () => {
+  it('registers the no-op installer under the package name and returns its disposer', async () => {
+    const disposer = () => {}
+    const registered: Array<[string, () => void]> = []
+    const ctx = {
+      invariants: {
+        register: (pkg: string, install: () => void) => {
+          registered.push([pkg, install])
+          return disposer
+        },
+      },
+    } as unknown as Context
+    expect(name).toBe('host-desktop-invariant')
+    expect(inject).toEqual(['invariants'])
+    await expect(applyInvariant(ctx)).resolves.toBe(disposer)
+    expect(registered).toHaveLength(1)
+    expect(registered[0]?.[0]).toBe('@deepseek-ai/dsh-host-desktop')
+    // The installer is a documented no-op; invoking it proves the companion
+    // ships a runnable body rather than an inert placeholder.
+    registered[0]?.[1]()
   })
 })

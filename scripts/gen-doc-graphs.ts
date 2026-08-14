@@ -522,6 +522,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Composes the __DSH_BOOT__ entry graph from an incremental dsh.client scan, serves plugin bundles, and notifies rebuilt/graph-changed subscribers.',
   },
   {
+    key: 'desktop',
+    pkg: 'desktop',
+    title: 'Desktop transport bridge',
+    mode: 'core',
+    consumers: ['apiproxy', 'modules', 'connection'],
+    note: 'Carrier-agnostic desktop bridge over the settled host services: boot graph, bundle bytes, and the fetch-shaped gateway reuse the host RPC registry, with no HTTP trust fence (an IPC renderer on the same machine is loopback-trusted).',
+  },
+  {
     key: 'workflowEngine',
     pkg: 'workflow',
     title: 'Workflow script engine',

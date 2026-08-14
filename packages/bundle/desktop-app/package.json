@@ -39,6 +39,7 @@
     }
   },
   "dependencies": {
+    "@deepseek-ai/dsh-client-connection": "workspace:^",
     "@deepseek-ai/dsh-host-desktop": "workspace:^",
     "@deepseek-ai/dsh-host-directory-picker-native": "workspace:^"
   },
