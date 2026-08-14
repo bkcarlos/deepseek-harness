@@ -27,8 +27,10 @@ win:
 linux:
   icon: build/icon.png
   # The package name (@deepseek-ai/dsh-desktop) is not a valid Linux executable
-  # file name (its `@` and `/` break AppImage paths); pin a safe one.
+  # or artifact file name (its `@` and `/` break AppImage paths and the deb
+  # output path); pin safe ones derived from the product name.
   executableName: dsh-desktop
+  artifactName: ${productName}-${version}-${arch}.${ext}
   target:
     - AppImage
     - deb
