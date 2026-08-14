@@ -26,6 +26,9 @@ win:
     - nsis
 linux:
   icon: build/icon.png
+  # The package name (@deepseek-ai/dsh-desktop) is not a valid Linux executable
+  # file name (its `@` and `/` break AppImage paths); pin a safe one.
+  executableName: dsh-desktop
   target:
     - AppImage
     - deb
