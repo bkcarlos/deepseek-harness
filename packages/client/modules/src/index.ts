@@ -182,7 +182,7 @@ export function injectBootManifest(html: string, graph: WebBootGraph): string {
  * boot activation audit reports it).
  */
 export class ClientModuleRegistry extends Service {
-  static inject = ['webServer', 'loader']
+  static inject = ['loader']
 
   private readonly table = new Map<string, WebPluginRecord>()
   // Negative verdicts (unresolvable specifier — builtins like cordis:include,
@@ -197,8 +197,11 @@ export class ClientModuleRegistry extends Service {
   private composed: WebBootGraph
 
   /**
-   * Build the service: subscribe, seed, and run the activation flush.
-   * @param ctx - plugin context carrying webServer and loader.
+   * Build the service: subscribe, seed, and run the activation flush. The
+   * graph and `clientPath()` are carrier-agnostic; the bundle route and index
+   * tap mount only when a web server is present (the Electron desktop surface
+   * loads bundles and injects `__DSH_BOOT__` over its own IPC bridge instead).
+   * @param ctx - plugin context carrying loader (webServer optional).
    */
   constructor(ctx: Context) {
     super(ctx, 'clientModules')
@@ -238,12 +241,26 @@ export class ClientModuleRegistry extends Service {
       throw new ClientPackageCompositionError(failures)
     }
 
-    ctx.effect(
-      () => ctx.webServer.register({ kind: 'prefix', path: '/plugins', handler: this.serveBundle }),
+    // The bundle route and index tap are the web server's carrier face: mount
+    // them now when the server is already present, otherwise defer until it
+    // arrives. A composition without a web server (the Electron desktop
+    // surface) never mounts them — the graph and clientPath() serve the IPC
+    // bridge that loads bundles and injects __DSH_BOOT__ over file://.
+    if (ctx.get('webServer') !== undefined) {
+      this.mountWebCarrier(ctx)
+    } else {
+      ctx.inject(['webServer'], (webCtx) => { this.mountWebCarrier(webCtx) })
+    }
+  }
+
+  /** Register the two web-server effects (bundle route + index tap) on the context carrying the server. */
+  private mountWebCarrier(webCtx: Context): void {
+    webCtx.effect(
+      () => webCtx.webServer.register({ kind: 'prefix', path: '/plugins', handler: this.serveBundle }),
       'client-modules: bundle route',
     )
-    ctx.effect(
-      () => ctx.webServer.tapIndex(html => injectBootManifest(html, this.composed)),
+    webCtx.effect(
+      () => webCtx.webServer.tapIndex(html => injectBootManifest(html, this.composed)),
       'client-modules: boot manifest injection',
     )
   }

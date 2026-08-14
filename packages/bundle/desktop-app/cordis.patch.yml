@@ -1,0 +1,57 @@
+# The dsh-desktop-app bundle patch: the Electron desktop surface over the
+# dsh-web-app layer. Applied after dsh-base and dsh-web-app in the desktop
+# profile; rows here swap the web surface's HTTP transport for the desktop IPC
+# bridge while keeping the whole GUI roster (the `dsh.client` rows and the host
+# services) shared with the web surface.
+#
+# A patch replaces the targeted row's whole `config`, so each row below
+# restates every key it owns.
+
+# ── drop the HTTP carrier: the desktop renderer loads dist over file:// and
+# carries fetch over the IPC bridge instead of the webserver ────────────────
+
+- id: webserver
+  disabled: true
+
+# web-runtime resolves the built frontend dist for the HTTP fallback, samples
+# LAN trust, and prints the URL line — all web-carrier facts the desktop shell
+# owns directly (it resolves the dist for file:// and never prints a URL).
+- id: web-runtime
+  disabled: true
+
+# web-startup parses --host/--port/--trusted-host; the desktop surface has no
+# network bind, so its cmdline provider is not needed.
+- id: web-startup
+  disabled: true
+
+# Idle until a rebuild watcher rewrites client bundles over HTTP; the desktop
+# surface loads bundle bytes over the IPC bridge, not a live reload route.
+- id: client-hmr
+  disabled: true
+
+# The connection row's node half is carrier-agnostic (it provides the host RPC
+# registry the desktop bridge reuses); drop the web-only webRuntime injection
+# and LAN trust literals, which belonged to the HTTP fence. `inject` is not a
+# `config` key, so clearing it is explicit here.
+- id: connection
+  name: '@deepseek-ai/dsh-client-connection'
+  inject: []
+  config:
+    trustedHosts: []
+
+# The auto picker resolves bind host + display, which needs the web server to
+# choose the browse backend; the desktop surface sits at the operator's screen,
+# so pin the native chooser (no webServer dependency). A patch cannot change a
+# row's `name` (it only validates it), so disable the auto row and mount the
+# native provider under its own id.
+- id: directory-picker
+  disabled: true
+
+# ── the desktop transport bridge over the settled host services ─────────────
+
+- insert:
+    - id: desktop
+      name: '@deepseek-ai/dsh-host-desktop'
+
+    - id: directory-picker-native
+      name: '@deepseek-ai/dsh-host-directory-picker-native'

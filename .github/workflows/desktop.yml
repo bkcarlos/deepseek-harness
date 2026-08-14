@@ -1,0 +1,78 @@
+# Build the Electron desktop installers for all three platforms. The app boots
+# the `desktop` profile in-process and packages the full dependency closure, so
+# the job builds the library first (the client bundles and vendored framework
+# runtime the packaged tree resolves) before electron-builder assembles each
+# platform's installer. Signing is deliberately off in CI: the artifacts are
+# unsigned development builds; a release run wires per-platform signing
+# identities and notarization separately.
+name: Desktop (Electron)
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI runs must never report to the production telemetry endpoint.
+  DSH_TELEMETRY_DISABLED: '1'
+  # Skip code-signing discovery: CI has no signing identity, and an unsigned
+  # build must not hang probing for one.
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+          - os: windows-2025
+          - os: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      # The packaged tree resolves built `lib/` artifacts (client plugin
+      # bundles under packages/*/lib/client.js, the vendored framework runtime,
+      # and the Typert-generated remote contracts), so the library build must
+      # precede electron-builder.
+      - name: Build libraries
+        run: pnpm run build:lib
+
+      - name: Package installer
+        run: pnpm --filter @deepseek-ai/dsh-desktop run dist
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 7

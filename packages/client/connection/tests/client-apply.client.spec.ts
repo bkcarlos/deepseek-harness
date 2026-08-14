@@ -9,8 +9,9 @@ import type { RpcMessage } from '../src/client/api.ts'
 import { RpcId } from '../src/client/api.ts'
 import { FixtureApiClient } from '../src/client/fixture.ts'
 import { WebApiClient } from '../src/client/web-api-client.ts'
+import { IpcApiClient, type DesktopFetchBridge, type DesktopFetchHandle } from '../src/client/ipc-api-client.ts'
 
-type Win = { location?: { hostname: string; search: string; origin?: string } }
+type Win = { location?: { hostname: string; search: string; origin?: string }; dshDesktop?: DesktopFetchBridge }
 type WebSocketGlobal = { WebSocket?: typeof WebSocket }
 
 const originalWebSocket = globalThis.WebSocket
@@ -82,6 +83,22 @@ describe('connection client apply', () => {
   it('reports non-loopback page authority through the connection handle', async () => {
     ;(globalThis as Win).location = { hostname: '192.0.2.20', search: '' }
     expect((await mount()).isLoopback).toBe(false)
+  })
+
+  it('selects the IPC carrier and loopback posture when the desktop bridge is present', async () => {
+    ;(globalThis as Win).location = { hostname: '', search: '', origin: 'null' }
+    ;(globalThis as Win).dshDesktop = {
+      request() {
+        return { response: Promise.reject(new Error('unused')), onChunk: () => {}, onEnd: () => {}, onError: () => {}, cancel: () => {} } as DesktopFetchHandle
+      },
+    }
+    try {
+      const handle = await mount()
+      expect(handle.api).toBeInstanceOf(IpcApiClient)
+      expect(handle.isLoopback).toBe(true)
+    } finally {
+      delete (globalThis as Win).dshDesktop
+    }
   })
 
   it('start() hands out one loop, rejects a second consumer, and stop() aborts the streams', async () => {
