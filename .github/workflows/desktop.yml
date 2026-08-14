@@ -61,16 +61,30 @@ jobs:
       - name: Build libraries
         run: pnpm run build:lib
 
+      # `secrets` is not a valid context in `if` expressions, so detect its
+      # presence through a step output the later conditions read instead.
+      - name: Detect macOS signing secrets
+        id: signing
+        if: matrix.os == 'macos-15'
+        env:
+          CERT: ${{ secrets.MACOS_CERTIFICATE }}
+        run: |
+          if [ -n "$CERT" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # The notarization secret is the raw .p8 key; electron-builder reads
       # APPLE_API_KEY as a path, so materialize it before packaging.
       - name: Prepare notarization key (macOS)
-        if: matrix.os == 'macos-15' && secrets.MACOS_CERTIFICATE != ''
+        if: matrix.os == 'macos-15' && steps.signing.outputs.present == 'true'
         env:
           APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
         run: printf '%s' "$APPLE_NOTARIZATION_KEY" > /tmp/AuthKey.p8
 
       - name: Package installer (macOS signed + notarized)
-        if: matrix.os == 'macos-15' && secrets.MACOS_CERTIFICATE != ''
+        if: matrix.os == 'macos-15' && steps.signing.outputs.present == 'true'
         env:
           CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -85,7 +99,7 @@ jobs:
         run: pnpm --filter @deepseek-ai/dsh-desktop run dist
 
       - name: Package installer (unsigned)
-        if: matrix.os != 'macos-15' || secrets.MACOS_CERTIFICATE == ''
+        if: matrix.os != 'macos-15' || steps.signing.outputs.present == 'false'
         run: pnpm --filter @deepseek-ai/dsh-desktop run dist
 
       - name: Upload installers
