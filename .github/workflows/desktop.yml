@@ -88,6 +88,11 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          # electron-builder skips signing on pull-request builds by default;
+          # this step only runs when the signing secrets are present, which is
+          # only ever true for same-repo branches (fork PRs get no secrets), so
+          # forcing signing here is safe.
+          CSC_FOR_PULL_REQUEST: 'true'
           # The global env disables identity probing for the unsigned
           # Windows/Linux jobs; the macOS signed path supplies its certificate
           # through CSC_LINK, so re-enable discovery to pick that one identity
