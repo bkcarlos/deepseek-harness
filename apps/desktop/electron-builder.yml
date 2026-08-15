@@ -4,8 +4,9 @@ publish:
   # electron-updater reads the packaged app-update.yml to find this feed. The
   # desktop.yml workflow uploads the installers + latest*.yml here when a
   # dsh-v* tag is pushed; the macOS update requires a signed + notarized build.
+  # Fork self-use: releases live in this fork, not the upstream repo.
   provider: github
-  owner: deepseek-ai
+  owner: bkcarlos
   repo: deepseek-harness
   releaseType: release
 directories:
