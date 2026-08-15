@@ -14,6 +14,7 @@ export type UpdateState =
   | { phase: 'not-available'; version: string }
   | { phase: 'downloading'; version: string; percent: number }
   | { phase: 'downloaded'; version: string }
+  | { phase: 'restarting' }
   | { phase: 'error'; message: string }
 
 /** The preload-exposed update surface (a subset of window.dshDesktop). */

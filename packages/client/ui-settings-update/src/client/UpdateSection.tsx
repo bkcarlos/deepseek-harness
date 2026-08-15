@@ -14,7 +14,15 @@ export type UpdateSectionProps =
 
 /** Whether the manual check action is usable from this state. */
 function canCheck(state: UpdateState): boolean {
-  return state.phase !== 'checking' && state.phase !== 'downloading'
+  switch (state.phase) {
+    case 'idle':
+    case 'available':
+    case 'not-available':
+    case 'error':
+      return true
+    default:
+      return false
+  }
 }
 
 /** The localized status line for one state. */
@@ -26,6 +34,7 @@ function statusText(state: UpdateState, t: UpdateSectionProps['t']): string {
     case 'not-available': return t('notAvailable', { version: state.version })
     case 'downloading': return t('downloading', { version: state.version })
     case 'downloaded': return t('downloaded', { version: state.version })
+    case 'restarting': return t('restarting')
     case 'error': return t('error', { message: state.message })
   }
 }

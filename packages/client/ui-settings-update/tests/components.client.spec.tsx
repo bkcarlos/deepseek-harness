@@ -54,12 +54,20 @@ describe('UpdateSection', () => {
     expect(screen.queryByRole('button', { name: 'install' })).toBeNull()
   })
 
-  it('shows the downloaded version and offers install', () => {
+  it('shows the downloaded version, disables check, and offers install', () => {
     const { install } = renderSection({ phase: 'downloaded', version: '1.0.0' })
     expect(screen.getByRole('status').textContent).toContain('1.0.0')
+    expect((screen.getByRole('button', { name: 'check' }) as HTMLButtonElement).disabled).toBe(true)
     const installButton = screen.getByRole('button', { name: 'install' })
     fireEvent.click(installButton)
     expect(install).toHaveBeenCalledOnce()
+  })
+
+  it('shows the restarting status with no actions', () => {
+    renderSection({ phase: 'restarting' })
+    expect(screen.getByRole('status').textContent).toBe('restarting')
+    expect((screen.getByRole('button', { name: 'check' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: 'install' })).toBeNull()
   })
 
   it('shows the error message with an enabled retry', () => {

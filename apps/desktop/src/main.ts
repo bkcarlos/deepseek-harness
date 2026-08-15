@@ -135,10 +135,10 @@ async function main(): Promise<void> {
  * Install the GitHub-Releases auto-update bridge: drive electron-updater's
  * state machine, push every transition to the renderer, and serve the manual
  * check/install commands over IPC. The startup check downloads in the
- * background and installs on quit — the least intrusive timing for a
- * long-running agent session. Failures — most commonly an unsigned local
- * build on macOS, whose update signature cannot be verified — are reported as
- * an `error` state and never fatal.
+ * background; applying it waits for the operator's explicit restart action,
+ * so an update never interrupts a running session on its own. Failures — most
+ * commonly an unsigned local build on macOS, whose update signature cannot be
+ * verified — are reported as an `error` state and never fatal.
  * @param window - the sole BrowserWindow the update state broadcasts to.
  */
 function setupAutoUpdate(window: BrowserWindow): void {
@@ -162,7 +162,9 @@ function setupAutoUpdate(window: BrowserWindow): void {
     }
   })
   ipcMain.handle(UPDATE_CHANNEL.install, () => {
-    autoUpdater.quitAndInstall()
+    setState({ phase: 'restarting' })
+    // Silent install (no confirmation dialog) and relaunch after install.
+    autoUpdater.quitAndInstall(true, true)
   })
 
   if (!app.isPackaged) return

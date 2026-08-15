@@ -10,6 +10,7 @@ export type UpdateState =
   | { phase: 'not-available'; version: string }
   | { phase: 'downloading'; version: string; percent: number }
   | { phase: 'downloaded'; version: string }
+  | { phase: 'restarting' }
   | { phase: 'error'; message: string }
 
 /** IPC channels: invoke (check/install/state) and the main→renderer push (event). */
