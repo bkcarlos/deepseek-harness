@@ -8,6 +8,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DesktopFetchHandle, DesktopFetchRequest, DesktopFetchResponse } from '@deepseek-ai/dsh-client-connection/client'
+import { UPDATE_CHANNEL, type UpdateState } from './update.ts'
 
 // One listener per in-flight request rides the shared push channels; the
 // connection's startup opens many streams at once, so raise the emitter cap
@@ -109,6 +110,24 @@ const bridge = {
   },
   request(input: DesktopFetchRequest): DesktopFetchHandle {
     return makeRequest(input)
+  },
+  updates: {
+    check(): Promise<unknown> {
+      return ipcRenderer.invoke(UPDATE_CHANNEL.check)
+    },
+    install(): Promise<unknown> {
+      return ipcRenderer.invoke(UPDATE_CHANNEL.install)
+    },
+    getState(): Promise<UpdateState> {
+      return ipcRenderer.invoke(UPDATE_CHANNEL.state)
+    },
+    onEvent(listener: (state: UpdateState) => void): () => void {
+      const handler = (_event: Electron.IpcRendererEvent, state: UpdateState): void => {
+        listener(state)
+      }
+      ipcRenderer.on(UPDATE_CHANNEL.event, handler)
+      return () => { ipcRenderer.removeListener(UPDATE_CHANNEL.event, handler) }
+    },
   },
 }
 

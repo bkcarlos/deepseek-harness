@@ -14,6 +14,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import type { DesktopBundleContent, DesktopHostService } from '@deepseek-ai/dsh-host-desktop'
 import { bootDesktop } from './boot.ts'
 import { autoUpdater } from 'electron-updater'
+import { UPDATE_CHANNEL, type UpdateState } from './update.ts'
 
 /** IPC channel names, shared with the preload. */
 const CHANNEL_BOOT = 'dsh:boot'
@@ -127,30 +128,65 @@ async function main(): Promise<void> {
   })
   window.once('ready-to-show', () => { window.show() })
   await window.loadFile(indexHtmlPath())
-  setupAutoUpdate()
+  setupAutoUpdate(window)
 }
 
 /**
- * Install the GitHub-Releases auto-update check. electron-updater reads the
- * provider and repository from the packaged `app-update.yml` (generated from
- * the electron-builder `publish` config), downloads a newer build in the
- * background, and installs it on quit — the least intrusive timing for a
+ * Install the GitHub-Releases auto-update bridge: drive electron-updater's
+ * state machine, push every transition to the renderer, and serve the manual
+ * check/install commands over IPC. The startup check downloads in the
+ * background and installs on quit — the least intrusive timing for a
  * long-running agent session. Failures — most commonly an unsigned local
- * build on macOS, whose update signature cannot be verified — are logged and
- * never fatal: the app boots and runs regardless.
+ * build on macOS, whose update signature cannot be verified — are reported as
+ * an `error` state and never fatal.
+ * @param window - the sole BrowserWindow the update state broadcasts to.
  */
-function setupAutoUpdate(): void {
-  // A development run carries no packaged update feed; electron-updater would
-  // otherwise reject the check with a missing-provider error.
+function setupAutoUpdate(window: BrowserWindow): void {
+  let state: UpdateState = { phase: 'idle' }
+  let version: string | undefined
+  const broadcast = (): void => {
+    if (!window.isDestroyed()) window.webContents.send(UPDATE_CHANNEL.event, state)
+  }
+  const setState = (next: UpdateState): void => {
+    state = next
+    broadcast()
+  }
+
+  ipcMain.handle(UPDATE_CHANNEL.state, () => state)
+  ipcMain.handle(UPDATE_CHANNEL.check, async () => {
+    if (!app.isPackaged) throw new Error('updates are unavailable in a development build')
+    try {
+      await autoUpdater.checkForUpdates()
+    } catch {
+      // The failure is already reflected through the 'error' event → state.
+    }
+  })
+  ipcMain.handle(UPDATE_CHANNEL.install, () => {
+    autoUpdater.quitAndInstall()
+  })
+
   if (!app.isPackaged) return
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('checking-for-update', () => { setState({ phase: 'checking' }) })
+  autoUpdater.on('update-available', (info) => {
+    version = info.version
+    setState({ phase: 'available', version: info.version })
+  })
+  autoUpdater.on('update-not-available', (info) => {
+    setState({ phase: 'not-available', version: info.version })
+  })
+  autoUpdater.on('download-progress', (progress) => {
+    setState({ phase: 'downloading', version: version ?? '', percent: progress.percent })
+  })
+  autoUpdater.on('update-downloaded', (info) => {
+    setState({ phase: 'downloaded', version: info.version })
+  })
   autoUpdater.on('error', (error) => {
     console.error('dsh-desktop: update error:', error)
+    setState({ phase: 'error', message: error instanceof Error ? error.message : String(error) })
   })
-  autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
-    console.warn('dsh-desktop: update check rejected:', error)
-  })
+  void autoUpdater.checkForUpdates()
 }
 
 /** Render a non-Error thrown value without Object's default `[object Object]` stringification. */
