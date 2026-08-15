@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-host-desktop",
   "description": "Host-side Electron desktop transport bridge: exposes the boot-manifest, client-bundle, and fetch-shaped API gateway over the desktop IPC carrier (no HTTP server)",
-  "version": "0.1.0-rc.7",
+  "version": "0.1.0-rc.8",
   "publishConfig": {
     "access": "public"
   },
