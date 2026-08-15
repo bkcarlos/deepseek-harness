@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import type { DesktopBundleContent, DesktopHostService } from '@deepseek-ai/dsh-host-desktop'
 import { bootDesktop } from './boot.ts'
+import { autoUpdater } from 'electron-updater'
 
 /** IPC channel names, shared with the preload. */
 const CHANNEL_BOOT = 'dsh:boot'
@@ -126,6 +127,30 @@ async function main(): Promise<void> {
   })
   window.once('ready-to-show', () => { window.show() })
   await window.loadFile(indexHtmlPath())
+  setupAutoUpdate()
+}
+
+/**
+ * Install the GitHub-Releases auto-update check. electron-updater reads the
+ * provider and repository from the packaged `app-update.yml` (generated from
+ * the electron-builder `publish` config), downloads a newer build in the
+ * background, and installs it on quit — the least intrusive timing for a
+ * long-running agent session. Failures — most commonly an unsigned local
+ * build on macOS, whose update signature cannot be verified — are logged and
+ * never fatal: the app boots and runs regardless.
+ */
+function setupAutoUpdate(): void {
+  // A development run carries no packaged update feed; electron-updater would
+  // otherwise reject the check with a missing-provider error.
+  if (!app.isPackaged) return
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('error', (error) => {
+    console.error('dsh-desktop: update error:', error)
+  })
+  autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
+    console.warn('dsh-desktop: update check rejected:', error)
+  })
 }
 
 /** Render a non-Error thrown value without Object's default `[object Object]` stringification. */

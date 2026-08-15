@@ -11,10 +11,13 @@ on:
   pull_request:
   push:
     branches: [master]
+    tags: ['dsh-v*']
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # The tag build publishes installers to GitHub Releases (electron-updater's
+  # feed); all other runs stay read-only artifact uploads.
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,6 +29,11 @@ env:
   # Windows/Linux have no signing identity in CI, and the macOS signed path
   # supplies its certificate explicitly through CSC_LINK; disable probing.
   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+  # electron-builder's GitHub publisher token (the auto GITHUB_TOKEN, with the
+  # contents:write permission above) and the packaging script selection: only a
+  # dsh-v* tag publishes; every other run stays --publish never.
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  PACKAGE_SCRIPT: ${{ startsWith(github.ref, 'refs/tags/dsh-v') && 'dist:publish' || 'dist' }}
 
 jobs:
   build:
@@ -101,11 +109,11 @@ jobs:
           APPLE_API_KEY: /tmp/AuthKey.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
-        run: pnpm --filter @deepseek-ai/dsh-desktop run dist
+        run: pnpm --filter @deepseek-ai/dsh-desktop run ${{ env.PACKAGE_SCRIPT }}
 
       - name: Package installer (unsigned)
         if: matrix.os != 'macos-15' || steps.signing.outputs.present == 'false'
-        run: pnpm --filter @deepseek-ai/dsh-desktop run dist
+        run: pnpm --filter @deepseek-ai/dsh-desktop run ${{ env.PACKAGE_SCRIPT }}
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
@@ -117,5 +125,7 @@ jobs:
             apps/desktop/release/*.exe
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
+            apps/desktop/release/*.yml
+            apps/desktop/release/*.blockmap
           if-no-files-found: error
           retention-days: 7

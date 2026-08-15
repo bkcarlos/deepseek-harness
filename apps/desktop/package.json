@@ -23,7 +23,8 @@
     "build": "vite build && tsdown",
     "build:renderer": "vite build",
     "build:electron": "tsdown",
-    "dist": "pnpm run build && electron-builder --publish never"
+    "dist": "pnpm run build && electron-builder --publish never",
+    "dist:publish": "pnpm run build && electron-builder --publish always"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "workspace:^",
@@ -190,7 +191,8 @@
     "@deepseek-ai/dsh-web-search-deepseek": "workspace:^",
     "@deepseek-ai/dsh-workflow": "workspace:^",
     "@deepseek-ai/dsh-workflow-worker-thread": "workspace:^",
-    "@deepseek-ai/dsh-workspace": "workspace:^"
+    "@deepseek-ai/dsh-workspace": "workspace:^",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
