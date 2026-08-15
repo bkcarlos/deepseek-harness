@@ -43,7 +43,7 @@
 # choose the browse backend; the desktop surface sits at the operator's screen,
 # so pin the native chooser (no webServer dependency). A patch cannot change a
 # row's `name` (it only validates it), so disable the auto row and mount the
-# native provider under its own id.
+# native pair under its own ids.
 - id: directory-picker
   disabled: true
 
@@ -53,5 +53,13 @@
     - id: desktop
       name: '@deepseek-ai/dsh-host-desktop'
 
+    # The native interaction is a pair: the host backend serves the seam
+    # capability while the client surface occupies ui-workspace's two
+    # directory-flow holes (without it the "add workspace" affordance is
+    # omitted). The -auto chooser mounts both; pinning -native composes the
+    # same pair directly.
     - id: directory-picker-native
       name: '@deepseek-ai/dsh-host-directory-picker-native'
+
+    - id: ui-directory-picker-native
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-native'
