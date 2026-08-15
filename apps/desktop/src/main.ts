@@ -10,13 +10,28 @@
 
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import type { DesktopBundleContent, DesktopHostService } from '@deepseek-ai/dsh-host-desktop'
 import { bootDesktop } from './boot.ts'
 import electronUpdater from 'electron-updater'
 import { UPDATE_CHANNEL, type UpdateState } from './update.ts'
+import { buildApplicationMenu } from './menu.ts'
 
 const { autoUpdater } = electronUpdater
+
+/**
+ * Run one update check. Failures surface through the updater's 'error' event
+ * (which drives the renderer state), never here; a development run carries no
+ * packaged feed and is a no-op.
+ */
+async function runUpdateCheck(): Promise<void> {
+  if (!app.isPackaged) return
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch {
+    // Already reflected through the 'error' event → state.
+  }
+}
 
 /** IPC channel names, shared with the preload. */
 const CHANNEL_BOOT = 'dsh:boot'
@@ -131,6 +146,7 @@ async function main(): Promise<void> {
   window.once('ready-to-show', () => { window.show() })
   await window.loadFile(indexHtmlPath())
   setupAutoUpdate(window)
+  Menu.setApplicationMenu(buildApplicationMenu(() => { void runUpdateCheck() }))
 }
 
 /**
@@ -155,14 +171,7 @@ function setupAutoUpdate(window: BrowserWindow): void {
   }
 
   ipcMain.handle(UPDATE_CHANNEL.state, () => state)
-  ipcMain.handle(UPDATE_CHANNEL.check, async () => {
-    if (!app.isPackaged) throw new Error('updates are unavailable in a development build')
-    try {
-      await autoUpdater.checkForUpdates()
-    } catch {
-      // The failure is already reflected through the 'error' event → state.
-    }
-  })
+  ipcMain.handle(UPDATE_CHANNEL.check, () => runUpdateCheck())
   ipcMain.handle(UPDATE_CHANNEL.install, () => {
     setState({ phase: 'restarting' })
     // Silent install (no confirmation dialog) and relaunch after install.
