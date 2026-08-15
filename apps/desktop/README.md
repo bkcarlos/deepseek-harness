@@ -8,6 +8,7 @@ The Electron desktop shell for DeepSeek Harness. It boots the `desktop` profile 
 - `src/preload.ts` — exposes `window.dshDesktop` (the `DesktopFetchBridge` the client `connection` plugin reads, plus the boot-manifest and bundle loaders).
 - `src/renderer.ts` — the thin renderer entry: composes `__DSH_BOOT__` from the bridge and hands the shell a `loadBundle` seam that executes bundle bytes in-page.
 - `src/boot.ts` — composes and boots the `desktop` profile, mirroring the CLI's profile boot.
+- `src/update.ts` — shares the auto-update state and IPC channel names between the main process and preload.
 
 ## Build and package
 

@@ -8,6 +8,7 @@ DeepSeek Harness 的 Electron 桌面壳层。它在进程内启动 `desktop` pro
 - `src/preload.ts` —— 暴露 `window.dshDesktop`（客户端 `connection` 插件读取的 `DesktopFetchBridge`，加上启动 manifest 与 bundle 加载器）。
 - `src/renderer.ts` —— 薄 renderer 入口：从桥接组装 `__DSH_BOOT__`，并交给壳层一个在页内执行 bundle 字节的 `loadBundle` 缝。
 - `src/boot.ts` —— 组合并启动 `desktop` profile，与 CLI 的 profile 启动相呼应。
+- `src/update.ts` —— 在主进程与 preload 之间共享自动更新状态和 IPC 频道名。
 
 ## 构建与打包
 

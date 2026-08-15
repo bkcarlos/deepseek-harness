@@ -13,8 +13,10 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import type { DesktopBundleContent, DesktopHostService } from '@deepseek-ai/dsh-host-desktop'
 import { bootDesktop } from './boot.ts'
-import { autoUpdater } from 'electron-updater'
+import electronUpdater from 'electron-updater'
 import { UPDATE_CHANNEL, type UpdateState } from './update.ts'
+
+const { autoUpdater } = electronUpdater
 
 /** IPC channel names, shared with the preload. */
 const CHANNEL_BOOT = 'dsh:boot'
