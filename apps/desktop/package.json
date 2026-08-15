@@ -23,7 +23,7 @@
     "build": "vite build && tsdown",
     "build:renderer": "vite build",
     "build:electron": "tsdown",
-    "dist": "pnpm run build && electron-builder"
+    "dist": "pnpm run build && electron-builder --publish never"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "workspace:^",
