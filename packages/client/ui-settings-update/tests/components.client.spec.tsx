@@ -9,11 +9,17 @@ afterEach(cleanup)
 const t = ((key: string, params?: Record<string, string | number>) =>
   params === undefined ? key : `${key} ${JSON.stringify(params)}`) as UpdateSectionProps['t']
 
+// Global standard hook stubs: the section never consumes these seats.
+const unusedHook = (() => { throw new Error('unused by the update section') }) as never
+const kit = { useSessions: unusedHook, useWorkspaces: unusedHook }
+
 function renderSection(state: UpdateState) {
   const check = vi.fn()
   const install = vi.fn()
   const useUpdate = ((selector: (s: UpdateState) => unknown) => selector(state)) as never
-  render(<UpdateSection useUpdate={useUpdate} check={check} install={install} t={t} />)
+  render(
+    <UpdateSection {...kit} useUpdate={useUpdate} check={check} install={install} t={t} close={vi.fn()} />,
+  )
   return { check, install }
 }
 
