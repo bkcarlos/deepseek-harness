@@ -526,6 +526,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'desktop',
+    summary: 'The desktop host service: the boot-manifest graph, per-entry bundle bytes, and the fetch-shaped API gateway (unary plus SSE streams) the Electron shell bridges over IPC.',
+    description: 'The desktop host service: the boot-manifest graph, per-entry bundle bytes, and the fetch-shaped API gateway (unary plus SSE streams) the Electron shell bridges over IPC. Provides `ctx.desktop` and `ctx.connection` (the host RPC registry `api-remotes` intercepts).',
+    methods: [
+      {
+        signature: 'graph(): WebBootGraph',
+        description: 'The composed client entry graph (what the browser reads as `window.__DSH_BOOT__`).',
+        parameters: [],
+        returns: 'the client-modules boot manifest.',
+      },
+      {
+        signature: 'bundle(id: string): DesktopBundleContent | undefined',
+        description: 'Bundle bytes for a client entry id, read from the client-modules table.',
+        parameters: [{ name: 'id', description: 'client entry name (package name).' }],
+        returns: 'the bundle content, or undefined for an unknown id.',
+      },
+      {
+        signature: 'fetch(request: Request): Promise<Response>',
+        description: 'Fetch-shaped API transport: unary and respond are complete JSON bodies; the event streams return an SSE Response whose body the shell streams.',
+        parameters: [{ name: 'request', description: 'the reconstructed request (fake authority, routed by pathname).' }],
+        returns: 'the host\'s response.',
+      },
+    ],
+  },
+  {
     key: 'directoryPicker',
     summary: 'Abstract directory-picking service.',
     description: 'Abstract directory-picking service. Subclass, implement `capability()`, and load the subclass as a plugin — it registers as `ctx.directoryPicker` (one implementation per context; loading a second throws, cordis\' standard duplicate-service behavior). The capability object must be stable for the service lifetime: consumers may capture it across calls.',
@@ -2920,6 +2945,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CredentialRef',
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
+  },
+  {
+    name: 'DesktopBundleContent',
+    declaration: 'export interface DesktopBundleContent {\n    contentType: string;\n    body: Uint8Array;\n}',
   },
   {
     name: 'DiffCallView',

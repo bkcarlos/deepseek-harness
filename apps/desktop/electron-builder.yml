@@ -1,0 +1,37 @@
+appId: com.deepseek.harness
+productName: DeepSeek Harness
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - dist-electron/**
+  - config/**
+  - package.json
+  - "!**/*.map"
+# The harness resolves plugin packages through real on-disk paths at boot (the
+# profile heal step symlinks `$DSH_HOME/profiles/node_modules` onto the app's
+# dependency tree), so node_modules must stay real directories rather than an
+# asar archive: a symlink into an asar path is not importable by the Loader.
+asar: false
+mac:
+  icon: build/icon.icns
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+win:
+  icon: build/icon.ico
+  target:
+    - nsis
+linux:
+  icon: build/icon.png
+  # The package name (@deepseek-ai/dsh-desktop) is not a valid Linux executable
+  # or artifact file name (its `@` and `/` break AppImage paths and the deb
+  # output path); pin safe ones derived from the product name.
+  executableName: dsh-desktop
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  target:
+    - AppImage
+    - deb
+  category: Development

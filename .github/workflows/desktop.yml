@@ -1,0 +1,121 @@
+# Build the Electron desktop installers for all three platforms. The app boots
+# the `desktop` profile in-process and packages the full dependency closure, so
+# the job builds the library first (the client bundles and vendored framework
+# runtime the packaged tree resolves) before electron-builder assembles each
+# platform's installer. macOS signs + notarizes when the signing secrets are
+# present (they are developer-account scoped, so they are reusable across
+# apps); Windows and Linux stay unsigned until those identities are wired.
+name: Desktop (Electron)
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI runs must never report to the production telemetry endpoint.
+  DSH_TELEMETRY_DISABLED: '1'
+  # Windows/Linux have no signing identity in CI, and the macOS signed path
+  # supplies its certificate explicitly through CSC_LINK; disable probing.
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+          - os: windows-2025
+          - os: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      # The packaged tree resolves built `lib/` artifacts (client plugin
+      # bundles under packages/*/lib/client.js, the vendored framework runtime,
+      # and the Typert-generated remote contracts), so the library build must
+      # precede electron-builder.
+      - name: Build libraries
+        run: pnpm run build:lib
+
+      # `secrets` is not a valid context in `if` expressions, so detect its
+      # presence through a step output the later conditions read instead.
+      - name: Detect macOS signing secrets
+        id: signing
+        if: matrix.os == 'macos-15'
+        env:
+          CERT: ${{ secrets.MACOS_CERTIFICATE }}
+        run: |
+          if [ -n "$CERT" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The notarization secret is the raw .p8 key; electron-builder reads
+      # APPLE_API_KEY as a path, so materialize it before packaging.
+      - name: Prepare notarization key (macOS)
+        if: matrix.os == 'macos-15' && steps.signing.outputs.present == 'true'
+        env:
+          APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
+        run: printf '%s' "$APPLE_NOTARIZATION_KEY" > /tmp/AuthKey.p8
+
+      - name: Package installer (macOS signed + notarized)
+        if: matrix.os == 'macos-15' && steps.signing.outputs.present == 'true'
+        env:
+          CSC_LINK: ${{ secrets.MACOS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          # electron-builder skips signing on pull-request builds by default;
+          # this step only runs when the signing secrets are present, which is
+          # only ever true for same-repo branches (fork PRs get no secrets), so
+          # forcing signing here is safe.
+          CSC_FOR_PULL_REQUEST: 'true'
+          # The global env disables identity probing for the unsigned
+          # Windows/Linux jobs; the macOS signed path supplies its certificate
+          # through CSC_LINK, so re-enable discovery to pick that one identity
+          # from the temporary keychain electron-builder creates.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'true'
+          APPLE_API_KEY: /tmp/AuthKey.p8
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
+        run: pnpm --filter @deepseek-ai/dsh-desktop run dist
+
+      - name: Package installer (unsigned)
+        if: matrix.os != 'macos-15' || steps.signing.outputs.present == 'false'
+        run: pnpm --filter @deepseek-ai/dsh-desktop run dist
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+          if-no-files-found: error
+          retention-days: 7

@@ -65,6 +65,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   compaction: 'compaction.md',
   cordisInspect: 'extensions.md',
   credentials: 'credentials.md',
+  desktop: 'desktop.md',
   directoryPicker: 'workspace.md',
   dynamicCordisRunner: 'extensions.md',
   e2b: 'subprocess.md',
@@ -471,6 +472,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   Workspace: 'workspace.md',
   WorkspaceId: 'workspace.md',
   WebBootGraph: 'client-modules.md',
+  DesktopBundleContent: 'desktop.md',
   SessionTelemetryRecord: 'session-telemetry.md',
   WorkflowRunInfo: 'workflow.md',
   WorkflowStartRequest: 'workflow.md',
@@ -500,6 +502,8 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
   'Promise',
   'Record',
   'Readonly',
+  'Request',
+  'Response',
   'Uint8Array',
 ])
 
