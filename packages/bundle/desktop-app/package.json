@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-desktop-app",
   "description": "The dsh Electron desktop-surface bundle: the desktop patch layer over dsh-web-app plus the desktop transport bridge row (drops the HTTP webserver for the IPC carrier)",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.6",
   "publishConfig": {
     "access": "public"
   },
