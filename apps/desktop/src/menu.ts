@@ -37,12 +37,17 @@ export function buildApplicationMenu(actions: MenuActions): Menu {
     { label: '新建会话', accelerator: 'CmdOrCtrl+N', click: actions.newSession },
     { label: '打开文件夹…', accelerator: 'CmdOrCtrl+O', click: actions.openFolder },
     { type: 'separator' },
-    { label: '检查更新…', click: actions.checkForUpdates },
-    { type: 'separator' },
-    { label: '打开数据目录', click: actions.openDataDirectory },
-    { label: '重新启动', click: actions.relaunch },
-    { type: 'separator' },
   ]
+  if (!isMac) {
+    // macOS has Settings in the application menu; other platforms put it in File.
+    fileSubmenu.push({ label: '设置…', accelerator: 'CmdOrCtrl+,', click: actions.openSettings })
+    fileSubmenu.push({ type: 'separator' })
+  }
+  fileSubmenu.push({ label: '检查更新…', click: actions.checkForUpdates })
+  fileSubmenu.push({ type: 'separator' })
+  fileSubmenu.push({ label: '打开数据目录', click: actions.openDataDirectory })
+  fileSubmenu.push({ label: '重新启动', click: actions.relaunch })
+  fileSubmenu.push({ type: 'separator' })
   if (isMac) {
     fileSubmenu.push({ role: 'close' })
   } else {
