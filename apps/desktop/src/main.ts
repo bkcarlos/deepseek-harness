@@ -42,6 +42,7 @@ const CHANNEL_FETCH_HEAD = 'dsh:fetch-head'
 const CHANNEL_FETCH_CHUNK = 'dsh:fetch-chunk'
 const CHANNEL_FETCH_END = 'dsh:fetch-end'
 const CHANNEL_FETCH_ERROR = 'dsh:fetch-error'
+const CHANNEL_MENU = 'dsh:menu'
 
 /** One serialized fetch request the preload sends. */
 interface DesktopFetchMessage {
@@ -146,7 +147,10 @@ async function main(): Promise<void> {
   window.once('ready-to-show', () => { window.show() })
   await window.loadFile(indexHtmlPath())
   setupAutoUpdate(window)
-  Menu.setApplicationMenu(buildApplicationMenu(() => { void runUpdateCheck() }))
+  Menu.setApplicationMenu(buildApplicationMenu({
+    checkForUpdates: () => { void runUpdateCheck() },
+    newSession: () => { window.webContents.send(CHANNEL_MENU, 'new-session') },
+  }))
 }
 
 /**

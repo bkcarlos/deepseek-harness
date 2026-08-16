@@ -129,6 +129,15 @@ const bridge = {
       return () => { ipcRenderer.removeListener(UPDATE_CHANNEL.event, handler) }
     },
   },
+  menu: {
+    onAction(listener: (action: string) => void): () => void {
+      const handler = (_event: Electron.IpcRendererEvent, action: string): void => {
+        listener(action)
+      }
+      ipcRenderer.on('dsh:menu', handler)
+      return () => { ipcRenderer.removeListener('dsh:menu', handler) }
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('dshDesktop', bridge)

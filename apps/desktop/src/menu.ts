@@ -1,16 +1,37 @@
-/** Application menu bar: the update check plus standard edit/view/window roles. @module @deepseek-ai/dsh-desktop/menu */
+/** Application menu bar: the update check, new-session action, and standard edit/view/window roles.
+ * @module @deepseek-ai/dsh-desktop/menu
+ */
 
-import { app, Menu, type MenuItemConstructorOptions } from 'electron'
+import { app, Menu, shell, type MenuItemConstructorOptions } from 'electron'
+
+/** The project home, used by the Help menu's external links. */
+const REPOSITORY_URL = 'https://github.com/deepseek-ai/deepseek-harness'
+
+/** Actions the menu dispatches into the running app. */
+export interface MenuActions {
+  /** Trigger one auto-update check. */
+  checkForUpdates: () => void
+  /** Start a new session (dispatched to the renderer over IPC). */
+  newSession: () => void
+}
 
 /**
  * Build the desktop application menu. Standard items use Electron roles (their
- * labels follow the operating system language); the only custom action is the
- * update check, shared with the Settings section through the same callback.
- * @param checkForUpdates - triggers one auto-update check.
+ * labels follow the operating system language); custom items dispatch the
+ * passed actions or open external links.
+ * @param actions - the app actions the menu items invoke.
  * @returns the assembled application menu.
  */
-export function buildApplicationMenu(checkForUpdates: () => void): Menu {
+export function buildApplicationMenu(actions: MenuActions): Menu {
   const isMac = process.platform === 'darwin'
+  const helpMenu: MenuItemConstructorOptions[] = [
+    { label: '文档', click: () => { void shell.openExternal(REPOSITORY_URL) } },
+    { label: '报告问题', click: () => { void shell.openExternal(`${REPOSITORY_URL}/issues`) } },
+  ]
+  if (!isMac) {
+    helpMenu.push({ type: 'separator' })
+    helpMenu.push({ label: '关于', click: () => { app.showAboutPanel() } })
+  }
   const template: MenuItemConstructorOptions[] = [
     // App menu (macOS) or File menu (other platforms).
     isMac
@@ -19,7 +40,8 @@ export function buildApplicationMenu(checkForUpdates: () => void): Menu {
         submenu: [
           { role: 'about' },
           { type: 'separator' },
-          { label: '检查更新…', click: checkForUpdates },
+          { label: '新建会话', accelerator: 'CmdOrCtrl+N', click: actions.newSession },
+          { label: '检查更新…', click: actions.checkForUpdates },
           { type: 'separator' },
           { role: 'services' },
           { type: 'separator' },
@@ -33,7 +55,8 @@ export function buildApplicationMenu(checkForUpdates: () => void): Menu {
       : {
         label: '文件',
         submenu: [
-          { label: '检查更新…', click: checkForUpdates },
+          { label: '新建会话', accelerator: 'CmdOrCtrl+N', click: actions.newSession },
+          { label: '检查更新…', click: actions.checkForUpdates },
           { type: 'separator' },
           { role: 'quit' },
         ],
@@ -73,6 +96,10 @@ export function buildApplicationMenu(checkForUpdates: () => void): Menu {
         { role: 'zoom' },
         { role: 'close' },
       ],
+    },
+    {
+      label: '帮助',
+      submenu: helpMenu,
     },
   ]
   return Menu.buildFromTemplate(template)
