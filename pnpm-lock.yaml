@@ -3037,6 +3037,9 @@ importers:
       '@deepseek-ai/dsh-client-connection':
         specifier: workspace:^
         version: link:../connection
+      '@deepseek-ai/dsh-client-desktop-menu':
+        specifier: workspace:^
+        version: link:../desktop-menu
       '@deepseek-ai/dsh-client-locale':
         specifier: workspace:^
         version: link:../locale

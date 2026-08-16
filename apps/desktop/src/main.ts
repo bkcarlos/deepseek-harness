@@ -10,12 +10,13 @@
 
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import type { DesktopBundleContent, DesktopHostService } from '@deepseek-ai/dsh-host-desktop'
 import { bootDesktop } from './boot.ts'
 import electronUpdater from 'electron-updater'
 import { UPDATE_CHANNEL, type UpdateState } from './update.ts'
 import { buildApplicationMenu } from './menu.ts'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 
 const { autoUpdater } = electronUpdater
 
@@ -150,6 +151,10 @@ async function main(): Promise<void> {
   Menu.setApplicationMenu(buildApplicationMenu({
     checkForUpdates: () => { void runUpdateCheck() },
     newSession: () => { window.webContents.send(CHANNEL_MENU, 'new-session') },
+    openFolder: () => { window.webContents.send(CHANNEL_MENU, 'open-folder') },
+    openSettings: () => { window.webContents.send(CHANNEL_MENU, 'open-settings') },
+    openDataDirectory: () => { void shell.openPath(resolveDshHome()) },
+    relaunch: () => { app.relaunch(); app.exit() },
   }))
 }
 

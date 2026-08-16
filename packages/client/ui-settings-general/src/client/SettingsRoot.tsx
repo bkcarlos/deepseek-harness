@@ -102,9 +102,15 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
  * @returns the settings shell element tree.
  */
 export function SettingsRoot(props: SettingsRootComponentProps) {
-  const { wide, useSections, useOnboardingSteps, useSessions, renderSlot } = props
+  const { wide, useSections, useOnboardingSteps, useOpenRequest, useSessions, renderSlot } = props
   const [open, setOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | undefined>(undefined)
+  // The native menu's "设置" command bumps the open-request counter; opening is
+  // idempotent, so a repeat while already open is harmless.
+  const openRequest = useOpenRequest(s => s)
+  useEffect(() => {
+    if (openRequest > 0) setOpen(true)
+  }, [openRequest])
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
   const close = useCallback(() => {
     setOpen(false)

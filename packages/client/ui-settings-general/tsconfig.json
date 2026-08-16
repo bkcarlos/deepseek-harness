@@ -24,6 +24,9 @@
       "path": "../ui-settings"
     },
     {
+      "path": "../desktop-menu"
+    },
+    {
       "path": "../web-react"
     },
     {

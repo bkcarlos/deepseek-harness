@@ -10,6 +10,9 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+// Type-only: pulls the native-menu 'desktop/menu' event declaration.
+import type {} from '@deepseek-ai/dsh-client-desktop-menu/client'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 // Type-only: the settings slot declarations plus the ctx.settingsScope Context
 // merge. Cross-plugin collaboration goes through the service, never a value
@@ -91,8 +94,24 @@ export function apply(ctx: ClientContext): void {
   let rows: readonly SettingsSectionRow[] = []
   let onboardingVersion = -1
   let onboardingSteps: readonly SettingsOnboardingStep[] = []
+  // Native-menu "设置" opens the panel: a monotonic counter the shell watches.
+  let openRequestCount = 0
+  const openRequestListeners = new Set<() => void>()
+  const openRequest: HostObservable<number> = {
+    getSnapshot: () => openRequestCount,
+    subscribe: (listener) => {
+      openRequestListeners.add(listener)
+      return () => { openRequestListeners.delete(listener) }
+    },
+  }
+  ctx.effect(() => ctx.on('desktop/menu', (action) => {
+    if (action !== 'open-settings') return
+    openRequestCount += 1
+    for (const listener of openRequestListeners) listener()
+  }), 'ui-settings-general: desktop menu')
   const shellInjected = (): SettingsRootInjected => ({
     hooks: {
+      openRequest,
       sections: {
         getSnapshot: () => {
           const version = ctx.slots.getVersion('settings.section')

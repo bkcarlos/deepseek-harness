@@ -10,6 +10,7 @@ import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
 import type { SettingsDocumentActionInjected } from '../src/client/SettingsDocumentAction.tsx'
+import type { SettingsRootInjected } from '../src/client/shell-contract.ts'
 
 // The service reads its initial locale from the browser; these specs assert
 // the shipped Chinese copy, so they state the browser they assume.
@@ -76,6 +77,29 @@ function generalEntry(slots: SlotRegistry) {
 describe('ui-settings-general apply', () => {
   it('declares the services it uses', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection'])
+  })
+
+  it('exposes an open-request signal driven by the desktop/menu event', async () => {
+    const b = await bench()
+    b.slots.register(
+      { name: 'root', children: { 'sidebar.settings': { kind: 'single', scope: 'root' } } } as never,
+      () => null,
+    )
+    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const shellEntry = b.slots.entries('sidebar.settings')[0]!
+    const shellInjected = (shellEntry.inject as unknown as () => SettingsRootInjected)()
+    const openRequest = shellInjected.hooks.openRequest
+    expect(openRequest.getSnapshot()).toBe(0)
+    const listener = vi.fn()
+    const off = openRequest.subscribe(listener)
+    b.ctx.emit('desktop/menu', 'open-settings')
+    expect(openRequest.getSnapshot()).toBe(1)
+    expect(listener).toHaveBeenCalledOnce()
+    b.ctx.emit('desktop/menu', 'other')
+    expect(openRequest.getSnapshot()).toBe(1)
+    off()
+    b.ctx.emit('desktop/menu', 'open-settings')
+    expect(listener).toHaveBeenCalledOnce()
   })
 
   it('fills all five seats for declarations before or after apply', async () => {

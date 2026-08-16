@@ -37,6 +37,8 @@ export type SettingsRootInjected = {
     sections: HostObservable<readonly SettingsSectionRow[]>
     /** settings.onboarding ledger projected into coordinator order. */
     onboardingSteps: HostObservable<readonly SettingsOnboardingStep[]>
+    /** Monotonic open-request counter (native menu "设置" opens the panel). */
+    openRequest: HostObservable<number>
   }
 }
 

@@ -49,6 +49,8 @@ function mount({
       byId: { 'active-session': { blank: false } },
     })) as never
   const unusedHook = (() => { throw new Error('unused by SettingsRoot') }) as never
+  let openRequestCount = 0
+  const openRequestListeners = new Set<() => void>()
   const props: SettingsRootComponentProps = {
     useSessions,
     useWorkspaces: unusedHook,
@@ -63,6 +65,15 @@ function mount({
       }, [])
       return select(current)
     },
+    useOpenRequest: (select) => {
+      const [, force] = useState(0)
+      useEffect(() => {
+        const listener = () => { force(n => n + 1) }
+        openRequestListeners.add(listener)
+        return () => { openRequestListeners.delete(listener) }
+      }, [])
+      return select(openRequestCount)
+    },
     renderSlot,
   }
   const view = render(<SettingsRoot {...props} />)
@@ -72,7 +83,13 @@ function mount({
       for (const fn of [...listeners]) fn()
     })
   }
-  return { view, renderSlot, bump, listeners }
+  const bumpOpenRequest = () => {
+    act(() => {
+      openRequestCount += 1
+      for (const fn of [...openRequestListeners]) fn()
+    })
+  }
+  return { view, renderSlot, bump, bumpOpenRequest, listeners }
 }
 
 function openPanel() {
@@ -94,6 +111,13 @@ describe('SettingsRoot trigger', () => {
   it('hands the rail state to the trigger seat', () => {
     const { renderSlot } = mount({ wide: false })
     expect(renderSlot).toHaveBeenCalledWith('settings.trigger', { wide: false })
+  })
+
+  it('opens the panel when the native-menu open-request counter bumps', () => {
+    const { bumpOpenRequest } = mount()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    bumpOpenRequest()
+    expect(screen.getByRole('dialog')).toBeTruthy()
   })
 })
 
