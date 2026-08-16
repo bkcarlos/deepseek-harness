@@ -9,6 +9,7 @@ DeepSeek Harness 的 Electron 桌面壳层。它在进程内启动 `desktop` pro
 - `src/renderer.ts` —— 薄 renderer 入口：从桥接组装 `__DSH_BOOT__`，并交给壳层一个在页内执行 bundle 字节的 `loadBundle` 缝。
 - `src/boot.ts` —— 组合并启动 `desktop` profile，与 CLI 的 profile 启动相呼应。
 - `src/update.ts` —— 在主进程与 preload 之间共享自动更新状态和 IPC 频道名。
+- `src/menu.ts` —— 构建原生应用菜单并分派其应用操作。
 
 ## 构建与打包
 
@@ -26,6 +27,7 @@ pnpm --filter @deepseek-ai/dsh-desktop run dist   # vite + tsdown + electron-bui
 
 - **`asar: false`** —— 启动复用 CLI 的 profile 机制，其 `healProfilesModuleFallback` 把 `$DSH_HOME/profiles/node_modules` 软链到应用的依赖树，Loader 再经这些真实路径解析裸插件名。指向 asar 路径的软链无法被导入。
 - **依赖清单即工作区 peer 闭包** —— electron-builder 沿 `dependencies` 图走，却不复刻 pnpm 每包的 `peerDependencies` 软链，因此每个只经 peer 可达的 `dsh-*` 包（如 `dsh-timeout`、`dsh-scope`）都直接声明在这里。配置树变化时重新生成闭包（见 `.agents/notes/implemented/architecture/2026-08-14-electron-desktop-ipc-surface.md` 中的 Agent Note）。
+- **每个 Electron 进程本地模块都是 tsdown 入口** —— tsdown 会输出各入口并把扩展名改写为 `.js`；如果被导入的模块未列入入口清单，打包应用中会保留无法加载的 `.ts` 导入。
 
 ## 已知限制
 

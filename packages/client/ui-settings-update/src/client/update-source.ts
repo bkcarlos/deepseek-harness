@@ -25,7 +25,10 @@ export interface DesktopUpdatesApi {
   onEvent(listener: (state: UpdateState) => void): () => void
 }
 
-/** Read the desktop update surface, absent in a plain web surface. */
+/**
+ * Read the desktop update surface.
+ * @returns the preload API, or undefined in a plain web surface.
+ */
 export function readDesktopUpdates(): DesktopUpdatesApi | undefined {
   const value = (globalThis as { dshDesktop?: { updates?: DesktopUpdatesApi } }).dshDesktop
   return value?.updates

@@ -18,7 +18,10 @@ export interface DesktopMenuApi {
   onAction(listener: (action: string) => void): () => void
 }
 
-/** Read the desktop menu surface, absent in a plain web surface. */
+/**
+ * Read the desktop menu surface.
+ * @returns the preload API, or undefined in a plain web surface.
+ */
 export function readDesktopMenu(): DesktopMenuApi | undefined {
   return (globalThis as { dshDesktop?: { menu?: DesktopMenuApi } }).dshDesktop?.menu
 }
