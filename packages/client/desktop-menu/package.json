@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-desktop-menu",
   "description": "Dispatch the desktop native menu bar's commands to the client services",
-  "version": "0.1.0-rc.12",
+  "version": "0.1.0-rc.13",
   "publishConfig": {
     "access": "public"
   },
